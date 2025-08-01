@@ -9,24 +9,25 @@ if (!sessionId) {
     process.exit(1);
 }
 
-console.log(`[BOT ${sessionId}] Iniciando...`);
+const client = new Client({
+    authStrategy: new LocalAuth({ clientId: sessionId }),
+    puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
+});
 
 const ws = new WebSocket(`ws://127.0.0.1:8000/ws/automacao/${sessionId}`);
 
 ws.on('open', () => {
     console.log(`[BOT ${sessionId}] Conectado ao Cérebro (API Python).`);
-    // CORREÇÃO: Adicionamos o campo "status" que estava faltando.
-    ws.send(JSON.stringify({ type: 'status', message: 'Bot iniciado, aguardando QR Code.', status: 'Iniciando' }));
+    ws.send(JSON.stringify({ type: 'status', message: 'Bot iniciado', status: 'Iniciando' }));
 });
 
-ws.on('error', (error) => {
-    console.error(`[BOT ${sessionId}] Erro de WebSocket:`, error);
-});
+ws.on('error', (error) => console.error(`[BOT ${sessionId}] Erro de WebSocket:`, error));
 
-const client = new Client({
-    authStrategy: new LocalAuth({ clientId: sessionId }),
-    puppeteer: {
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+ws.on('message', (data) => {
+    const command = JSON.parse(data);
+    if (command.type === 'send_message') {
+        console.log(`[BOT ${sessionId}] Recebeu ordem para enviar "${command.text}" para ${command.to}`);
+        client.sendMessage(command.to, command.text);
     }
 });
 
@@ -37,12 +38,19 @@ client.on('qr', (qr) => {
 
 client.on('ready', () => {
     const botNumber = client.info.wid.user;
-    console.log(`[BOT ${sessionId}] Cliente conectado e pronto! Número: ${botNumber}`);
-    ws.send(JSON.stringify({ type: 'status', message: 'Conectado com sucesso!', status: 'Online', numero: botNumber }));
+    console.log(`[BOT ${sessionId}] Cliente conectado! Número: ${botNumber}`);
+    ws.send(JSON.stringify({ type: 'status', message: 'Conectado!', status: 'Online', numero: botNumber }));
+});
+
+client.on('message', (message) => {
+    console.log(`[BOT ${sessionId}] Mensagem recebida de ${message.from}: "${message.body}"`);
+    if (!message.from.endsWith('@g.us')) {
+        ws.send(JSON.stringify({ type: 'message_received', from: message.from, text: message.body }));
+    }
 });
 
 client.on('disconnected', (reason) => {
-    console.log(`[BOT ${sessionId}] Cliente foi desconectado!`, reason);
+    console.log(`[BOT ${sessionId}] Cliente desconectado!`, reason);
     ws.send(JSON.stringify({ type: 'status', message: 'Desconectado.', status: 'Offline' }));
     process.exit(1);
 });
