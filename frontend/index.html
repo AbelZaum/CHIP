@@ -117,7 +117,10 @@
         const loginForm = document.getElementById('login-form');
         const loginError = document.getElementById('login-error');
         const logoutBtn = document.getElementById('logout-btn');
-        const API_URL = 'http://127.0.0.1:8000';
+        // URL da API - muda automaticamente entre desenvolvimento e produção
+        const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+            ? 'http://127.0.0.1:8000' 
+            : 'https://seu-backend.onrender.com'; // Substitua pela URL real do Render que você acabou de pegar
 
         const handleLogin = async (event) => {
             event.preventDefault();
@@ -522,7 +525,11 @@
                     
                     if(mainSocket && mainSocket.readyState !== WebSocket.CLOSED) mainSocket.close();
                     
-                    mainSocket = new WebSocket(`ws://127.0.0.1:8000/ws/frontend/${sessionId}`);
+                    // WebSocket URL - muda automaticamente entre desenvolvimento e produção
+                    const wsUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+                        ? `ws://127.0.0.1:8000/ws/frontend/${sessionId}`
+                        : `wss://seu-backend.onrender.com/ws/frontend/${sessionId}`; // Substitua pela URL real do Render que você acabou de pegar
+                    mainSocket = new WebSocket(wsUrl);
                     
                     mainSocket.onmessage = (event) => {
                         const msg = JSON.parse(event.data);
