@@ -7,6 +7,7 @@
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="shortcut icon" href="Chip.ico" type="image/x-icon">
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -137,12 +138,10 @@
                     sessionStorage.setItem('userName', data.nome);
 
                     if (data.mustChange === true) {
-                        // Se precisa trocar a senha, mostra o modal
-                        currentUserForPasswordChange = username; // Guarda o usuário atual
+                        currentUserForPasswordChange = username;
                         document.getElementById('change-password-modal').classList.remove('hidden');
-                        loginWrapper.classList.add('hidden'); // Esconde a tela de login
+                        loginWrapper.classList.add('hidden');
                     } else {
-                        // Se não precisa, vai direto para o app
                         showApp();
                     }
                 }
@@ -182,16 +181,10 @@
 
         changePasswordForm.addEventListener('submit', async (event) => {
             event.preventDefault();
-
-            // --- CORREÇÃO AQUI ---
-            // 1. Primeiro, pegamos a referência aos ELEMENTOS de input
             const newPasswordInput = document.getElementById('new-password');
             const confirmPasswordInput = document.getElementById('confirm-password');
-
-            // 2. Depois, pegamos os VALORES a partir dos elementos
             const newPassword = newPasswordInput.value;
             const confirmPassword = confirmPasswordInput.value;
-            // ----------------------
 
             if (newPassword !== confirmPassword) {
                 alert('As senhas não coincidem!');
@@ -221,7 +214,6 @@
                 alert('Senha alterada com sucesso! Você será direcionado para o painel.');
                 document.getElementById('change-password-modal').classList.add('hidden');
                 
-                // 3. Agora, este código para limpar os campos funciona corretamente
                 newPasswordInput.value = '';
                 confirmPasswordInput.value = '';
 
@@ -243,7 +235,6 @@
 
             const fetchFromAPI = async (endpoint, options = {}) => {
                 try {
-                    // Garante que o Content-Type seja definido para POST requests
                     if (options.method === 'POST' && options.body) {
                         options.headers = {
                             'Content-Type': 'application/json',
@@ -263,9 +254,9 @@
                 } catch (error) {
                     console.error(`Erro no endpoint /${endpoint}:`, error);
                     if (endpoint !== 'start-session') {
-                        mainContent.innerHTML = `<div class="text-center p-8 bg-red-900/50 border border-red-500 rounded-lg"><h2 class="text-2xl font-bold text-red-400">Removido com Sucesso</h2><p class="text-slate-300 mt-2">Pode ir para o dashboard.</p></div>`;
+                        mainContent.innerHTML = `<div class="text-center p-8 bg-red-900/50 border border-red-500 rounded-lg"><h2 class="text-2xl font-bold text-red-400">Excluido com Sucesso</h2><p class="text-slate-300 mt-2">Pode Voltar para a Dashboard.</p></div>`;
                     }
-                    throw error; // Re-throw para ser capturado pelo handleAddChip
+                    throw error;
                 }
             };
 
@@ -275,13 +266,15 @@
                     Aquecendo: { color: 'bg-yellow-500 subtle-pulse', text: 'Aquecendo' },
                     'Aguardando Scan': { color: 'bg-sky-500 subtle-pulse', text: 'Aguardando Scan' },
                     Erro: { color: 'bg-red-500', text: 'Erro' },
-                }[status] || { color: 'bg-slate-500', text: 'Offline' };
+                    Pendente: { color: 'bg-slate-500 subtle-pulse', text: 'Iniciando...' },
+                }[status] || { color: 'bg-slate-600', text: 'Offline' };
                 return `<div class="flex items-center gap-2"><span class="h-2.5 w-2.5 rounded-full ${config.color}"></span><span class="text-sm font-medium">${config.text}</span></div>`;
             };
             
+            // --- ATUALIZAÇÃO DA INTERFACE ---
             const renderDashboard = () => {
                 const activeAccounts = state.accounts.filter(acc => acc.status === 'Online' || acc.status === 'Aquecendo').length;
-                const planLimit = 4; // Plano Básico
+                const planLimit = 20; // NOVO LIMITE
                 const canAddMore = state.accounts.length < planLimit;
                 const userName = sessionStorage.getItem('userName') || 'Chefe'; 
                 
@@ -293,7 +286,7 @@
                         </div>
                         <div class="flex items-center gap-4">
                             <div class="text-right">
-                                <p class="text-sm text-slate-400">Plano Básico</p>
+                                <p class="text-sm text-slate-400">Plano PRO</p>
                                 <p class="text-lg font-semibold">${state.accounts.length} / ${planLimit} contas</p>
                             </div>
                             <button id="add-chip-btn" class="flex items-center gap-2 ${canAddMore ? 'bg-sky-500 hover:bg-sky-600' : 'bg-slate-600 cursor-not-allowed'} text-white font-bold py-3 px-5 rounded-lg transition-colors">
@@ -316,14 +309,14 @@
                             <p class="text-4xl font-bold mt-2 text-orange-400">${state.systemStats.warmingAccounts || 0}</p>
                         </div>
                         <div class="bg-slate-800/50 p-6 rounded-xl border border-slate-700/50">
-                            <h3 class="text-slate-400 text-sm">Mensagens Hoje</h3>
-                            <p class="text-4xl font-bold mt-2">${state.systemStats.messagesToday || 0}</p>
+                            <h3 class="text-slate-400 text-sm">Tempo de atividade</h3>
+                            <p class="text-4xl font-bold mt-2">${state.systemStats.uptime || '0m'}</p>
                         </div>
                     </div>
                     <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl">
                         <div class="p-6">
-                            <h3 class="text-xl font-semibold">Visão Geral</h3>
-                            <p class="text-sm text-slate-400 mt-1">Pares de conversa: 1↔2, 3↔4</p>
+                            <h3 class="text-xl font-semibold">Visão Geral das Contas</h3>
+                            <p class="text-sm text-slate-400 mt-1">As conversas são iniciadas dinamicamente entre as contas online.</p>
                         </div>
                         <div class="overflow-x-auto">
                             <table class="w-full text-left">
@@ -331,20 +324,17 @@
                                     <tr class="text-sm text-slate-400">
                                         <th class="p-4">Número</th>
                                         <th class="p-4">Status</th>
-                                        <th class="p-4">Par</th>
                                         <th class="p-4">Última Atividade</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${state.accounts.map((acc, index) => {
-                                        const pairNumber = Math.floor(index / 2) + 1;
-                                        return `<tr class="border-t border-slate-800">
-                                            <td class="p-4">${acc.numero}</td>
+                                    ${state.accounts.length > 0 ? state.accounts.map((acc) => {
+                                        return `<tr class="border-t border-slate-800 hover:bg-slate-800">
+                                            <td class="p-4 font-medium">${acc.numero}</td>
                                             <td class="p-4">${createStatusBadge(acc.status)}</td>
-                                            <td class="p-4"><span class="bg-sky-500/20 text-sky-400 px-2 py-1 rounded text-sm">Par ${pairNumber}</span></td>
                                             <td class="p-4">${new Date(acc.ultimaAtividade).toLocaleString('pt-BR')}</td>
                                         </tr>`;
-                                    }).join('')}
+                                    }).join('') : `<tr><td colspan="3" class="text-center p-8 text-slate-400">Nenhuma conta adicionada ainda.</td></tr>`}
                                 </tbody>
                             </table>
                         </div>
@@ -352,23 +342,23 @@
                 
                 const addButton = document.getElementById('add-chip-btn');
                 addButton.addEventListener('click', canAddMore ? handleAddChip : () => {
-                    alert('⚠️ Limite do plano Básico atingido!\n\nUpgrade para PRO para conectar mais contas.');
+                    alert(`⚠️ Limite do plano PRO atingido (${planLimit} contas)!\n\nPara adicionar mais, contate o suporte.`);
                 });
             };
 
             const renderContas = () => {
-                const planLimit = 4; // Plano Básico
+                const planLimit = 20; // NOVO LIMITE
                 const canAddMore = state.accounts.length < planLimit;
                 
                 mainContent.innerHTML = `
                     <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 gap-4">
                         <div>
                             <h2 class="text-3xl font-bold">Gerenciador de Contas</h2>
-                            <p class="text-slate-400">Adicione ou remova suas contas.</p>
+                            <p class="text-slate-400">Adicione ou remova suas contas de aquecimento.</p>
                         </div>
                         <div class="flex items-center gap-4">
                             <div class="text-right">
-                                <p class="text-sm text-slate-400">Plano Básico</p>
+                                <p class="text-sm text-slate-400">Plano PRO</p>
                                 <p class="text-lg font-semibold">${state.accounts.length} / ${planLimit} contas</p>
                             </div>
                             <button id="add-chip-btn" class="flex items-center gap-2 ${canAddMore ? 'bg-sky-500 hover:bg-sky-600' : 'bg-slate-600 cursor-not-allowed'} text-white font-bold py-3 px-5 rounded-lg transition-colors">
@@ -377,19 +367,18 @@
                             </button>
                         </div>
                     </header>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        ${state.accounts.map((account, index) => {
-                            const pairNumber = Math.floor(index / 2) + 1;
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        ${state.accounts.map((account) => {
                             return `
                                 <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 flex flex-col">
                                     <div class="flex justify-between items-start mb-4">
                                         <div>
                                             <span class="font-semibold text-lg">${account.numero}</span>
-                                            <div class="mt-1">
-                                                <span class="bg-sky-500/20 text-sky-400 px-2 py-1 rounded text-xs">Par ${pairNumber}</span>
-                                            </div>
                                         </div>
                                         ${createStatusBadge(account.status)}
+                                    </div>
+                                    <div class="text-xs text-slate-400 mb-4">
+                                        Última Atividade: ${new Date(account.ultimaAtividade).toLocaleTimeString('pt-BR')}
                                     </div>
                                     <div class="mt-auto flex gap-2">
                                         <button data-session-id="${account.id}" class="remove-btn flex-1 flex items-center justify-center gap-2 bg-red-500/20 text-red-400 hover:bg-red-500/30 font-semibold py-2 px-3 rounded-lg">
@@ -397,17 +386,18 @@
                                         </button>
                                     </div>
                                 </div>`;
-                        }).join('') || '<p class="text-slate-400 col-span-full">Nenhuma conta conectada.</p>'}
+                        }).join('') || '<p class="text-slate-400 col-span-full text-center py-10">Nenhuma conta conectada.</p>'}
                     </div>`;
                 
                 const addButton = document.getElementById('add-chip-btn');
                 addButton.addEventListener('click', canAddMore ? handleAddChip : () => {
-                    alert('⚠️ Limite do plano Básico atingido!\n\nUpgrade para PRO para conectar mais contas.');
+                    alert(`⚠️ Limite do plano PRO atingido (${planLimit} contas)!\n\nPara adicionar mais, contate o suporte.`);
                 });
                 document.querySelectorAll('.remove-btn').forEach(btn => btn.addEventListener('click', handleRemoveChip));
             };
             
-            const renderPlanos = () => { mainContent.innerHTML = `<header class="mb-10 text-center"><h2 class="text-3xl font-bold">Nossos Planos</h2><p class="text-slate-400 max-w-xl mx-auto mt-2">Escolha o plano que melhor se adapta às suas necessidades.</p></header><div class="flex flex-col lg:flex-row justify-center items-center gap-8"><div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-8 w-full max-w-sm"><h3 class="text-2xl font-bold text-center">Básico</h3><p class="text-center text-slate-400 mb-6">Ideal para começar</p><p class="text-4xl font-bold text-center mb-6">R$ 49<span class="text-lg font-medium text-slate-400">/mês</span></p><ul class="space-y-4 mb-8"><li class="flex items-center gap-3"><i data-lucide="check" class="text-green-400 w-5 h-5"></i><span>Até <strong>5</strong> contas</span></li><li class="flex items-center gap-3"><i data-lucide="check" class="text-green-400 w-5 h-5"></i><span>Conversas com roteiro fixo</span></li><li class="flex items-center gap-3 text-slate-500"><i data-lucide="x" class="w-5 h-5"></i><span>Conversas com IA</span></li></ul><button class="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-6 rounded-lg">Selecionar Plano</button></div><div class="bg-slate-800 border-2 border-sky-500 rounded-xl p-8 w-full max-w-sm relative shadow-2xl shadow-sky-500/20"><div class="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 bg-sky-500 text-white px-4 py-1 rounded-full text-sm font-bold">MAIS POPULAR</div><h3 class="text-2xl font-bold text-center text-sky-400">PRO</h3><p class="text-center text-slate-400 mb-6">Para usuários avançados</p><p class="text-4xl font-bold text-center mb-6">R$ 99<span class="text-lg font-medium text-slate-400">/mês</span></p><ul class="space-y-4 mb-8"><li class="flex items-center gap-3"><i data-lucide="check" class="text-green-400 w-5 h-5"></i><span>Contas <strong>ilimitadas</strong></span></li><li class="flex items-center gap-3"><i data-lucide="check" class="text-green-400 w-5 h-5"></i><span>Conversas com roteiro fixo</span></li><li class="flex items-center gap-3"><i data-lucide="check" class="text-green-400 w-5 h-5"></i><span>Conversas com <strong>IA (Gemini)</strong></span></li></ul><button class="w-full bg-slate-600 text-slate-400 font-bold py-3 px-6 rounded-lg cursor-not-allowed" disabled>Plano Atual</button></div></div>`; };
+            const renderPlanos = () => { mainContent.innerHTML = `<header class="mb-10 text-center"><h2 class="text-3xl font-bold">Nossos Planos</h2><p class="text-slate-400 max-w-xl mx-auto mt-2">Escolha o plano que melhor se adapta às suas necessidades.</p></header><div class="flex flex-col lg:flex-row justify-center items-center gap-8"><div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-8 w-full max-w-sm"><h3 class="text-2xl font-bold text-center">Iniciante</h3><p class="text-center text-slate-400 mb-6">Ideal para começar</p><p class="text-4xl font-bold text-center mb-6">R$ 49<span class="text-lg font-medium text-slate-400">/mês</span></p><ul class="space-y-4 mb-8"><li class="flex items-center gap-3"><i data-lucide="check" class="text-green-400 w-5 h-5"></i><span>Até <strong>5</strong> contas</span></li><li class="flex items-center gap-3"><i data-lucide="check" class="text-green-400 w-5 h-5"></i><span>Conversas com roteiro fixo</span></li><li class="flex items-center gap-3 text-slate-500"><i data-lucide="x" class="w-5 h-5"></i><span>Conversas com IA</span></li></ul><button class="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-6 rounded-lg">Mudar Plano</button></div><div class="bg-slate-800 border-2 border-sky-500 rounded-xl p-8 w-full max-w-sm relative shadow-2xl shadow-sky-500/20"><div class="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 bg-sky-500 text-white px-4 py-1 rounded-full text-sm font-bold">PLANO ATUAL</div><h3 class="text-2xl font-bold text-center text-sky-400">PRO</h3><p class="text-center text-slate-400 mb-6">Para usuários avançados</p><p class="text-4xl font-bold text-center mb-6">R$ 99<span class="text-lg font-medium text-slate-400">/mês</span></p><ul class="space-y-4 mb-8"><li class="flex items-center gap-3"><i data-lucide="check" class="text-green-400 w-5 h-5"></i><span>Até <strong>20</strong> contas</span></li><li class="flex items-center gap-3"><i data-lucide="check" class="text-green-400 w-5 h-5"></i><span>Conversas com roteiro dinâmico</span></li><li class="flex items-center gap-3"><i data-lucide="check" class="text-green-400 w-5 h-5"></i><span>Conversas com <strong>IA (Gemini)</strong></span></li></ul><button class="w-full bg-slate-600 text-slate-400 font-bold py-3 px-6 rounded-lg cursor-not-allowed" disabled>Selecionado</button></div></div>`; };
+            
             const renderConfiguracoes = async () => {
                 const config = await fetchFromAPI('config') || {};
                 
@@ -430,8 +420,8 @@
                                 <div class="flex justify-between items-center">
                                     <span class="text-slate-300">Habilitar aquecimento</span>
                                     <div class="relative inline-block w-10 mr-2 align-middle">
-                                        <input type="checkbox" id="warming-enabled" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all duration-300 ease-in-out" ${config.warming?.enabled ? 'checked' : ''} style="right: ${config.warming?.enabled ? '0' : '16px'}; border-color: ${config.warming?.enabled ? '#38bdf8' : '#475569'};"/>
-                                        <label for="warming-enabled" class="toggle-label block overflow-hidden h-6 rounded-full cursor-pointer transition-colors duration-300" style="background-color: ${config.warming?.enabled ? '#38bdf8' : '#475569'};"></label>
+                                        <input type="checkbox" id="warming-enabled" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" ${config.warming?.enabled ? 'checked' : ''}/>
+                                        <label for="warming-enabled" class="toggle-label block overflow-hidden h-6 rounded-full cursor-pointer"></label>
                                     </div>
                                 </div>
                                 
@@ -441,106 +431,54 @@
                                 </div>
                                 
                                 <div>
-                                    <label class="block text-sm font-medium text-slate-400 mb-1">Máximo de conversas</label>
-                                    <input type="number" id="warming-max-conversations" value="${config.warming?.max_conversations || 5}" min="1" max="20" class="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500">
+                                    <label class="block text-sm font-medium text-slate-400 mb-1">Máximo de conversas simultâneas</label>
+                                    <input type="number" id="warming-max-conversations" value="${config.warming?.max_conversations || 10}" min="1" max="20" class="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500">
                                 </div>
                                 
                                 <div>
                                     <label class="block text-sm font-medium text-slate-400 mb-1">Roteiros Ativos</label>
-                                    <div class="space-y-2">
-                                        <label class="flex items-center gap-2">
-                                            <input type="checkbox" id="script-casual" ${config.warming?.active_scripts?.includes('casual') ? 'checked' : ''} class="rounded">
-                                            <span class="text-slate-300">Casual</span>
-                                        </label>
-                                        <label class="flex items-center gap-2">
-                                            <input type="checkbox" id="script-trabalho" ${config.warming?.active_scripts?.includes('trabalho') ? 'checked' : ''} class="rounded">
-                                            <span class="text-slate-300">Trabalho</span>
-                                        </label>
-                                        <label class="flex items-center gap-2">
-                                            <input type="checkbox" id="script-familia" ${config.warming?.active_scripts?.includes('familia') ? 'checked' : ''} class="rounded">
-                                            <span class="text-slate-300">Família</span>
-                                        </label>
+                                    <div class="space-y-2 mt-2">
+                                        <label class="flex items-center gap-2"><input type="checkbox" name="scripts" value="casual" ${config.warming?.active_scripts?.includes('casual') ? 'checked' : ''} class="form-checkbox h-5 w-5 rounded bg-slate-700 border-slate-600 text-sky-500 focus:ring-sky-500"><span class="text-slate-300">Casual</span></label>
+                                        <label class="flex items-center gap-2"><input type="checkbox" name="scripts" value="trabalho" ${config.warming?.active_scripts?.includes('trabalho') ? 'checked' : ''} class="form-checkbox h-5 w-5 rounded bg-slate-700 border-slate-600 text-sky-500 focus:ring-sky-500"><span class="text-slate-300">Trabalho</span></label>
+                                        <label class="flex items-center gap-2"><input type="checkbox" name="scripts" value="familia" ${config.warming?.active_scripts?.includes('familia') ? 'checked' : ''} class="form-checkbox h-5 w-5 rounded bg-slate-700 border-slate-600 text-sky-500 focus:ring-sky-500"><span class="text-slate-300">Família</span></label>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
-
                         
-                        <!-- Configurações de Segurança -->
-                        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-                            <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
-                                <i data-lucide="shield" class="w-5 h-5 text-green-400"></i>
-                                Segurança
-                            </h3>
-                            
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-400 mb-1">Chave API Gemini</label>
-                                    <input type="password" id="gemini-key" value="${config.security?.gemini_api_key || ''}" class="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" placeholder="sk-...">
-                                </div>
+                        <!-- Configurações de Segurança e Ações -->
+                        <div class="space-y-8">
+                            <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+                                <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                                    <i data-lucide="shield" class="w-5 h-5 text-green-400"></i>
+                                    Segurança
+                                </h3>
                                 
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-400 mb-1">Máximo de Sessões</label>
-                                    <input type="number" id="max-sessions" value="${config.security?.max_sessions || 10}" min="1" max="50" class="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500">
-                                </div>
-                                
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-400 mb-1">Timeout da Sessão (segundos)</label>
-                                    <input type="number" id="session-timeout" value="${config.security?.session_timeout || 3600}" min="300" max="86400" class="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500">
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-slate-400 mb-1">Chave API Gemini (Opcional)</label>
+                                        <input type="password" id="gemini-key" value="${config.security?.gemini_api_key || ''}" class="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" placeholder="sk-...">
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        
-                        <!-- Botões de Ação -->
-                        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-                            <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
-                                <i data-lucide="save" class="w-5 h-5 text-purple-400"></i>
-                                Ações
-                            </h3>
-                            
-                            <div class="space-y-4">
-                                <button id="save-config-btn" class="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-6 rounded-lg transition-colors">
-                                    Salvar Configurações
-                                </button>
-                                
-                                <button id="reset-config-btn" class="w-full bg-slate-600 hover:bg-slate-700 text-white font-bold py-3 px-6 rounded-lg transition-colors">
-                                    Restaurar Padrões
-                                </button>
-                                
-                                <button id="test-config-btn" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition-colors">
-                                    Testar Configurações
-                                </button>
+
+                            <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
+                                <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                                    <i data-lucide="save" class="w-5 h-5 text-purple-400"></i>
+                                    Ações
+                                </h3>
+                                <div class="space-y-4">
+                                    <button id="save-config-btn" class="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-6 rounded-lg transition-colors">
+                                        Salvar Configurações
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
                 `;
                 
-                // Adiciona event listeners
                 document.getElementById('save-config-btn').addEventListener('click', handleSaveConfig);
-                document.getElementById('reset-config-btn').addEventListener('click', handleResetConfig);
-                document.getElementById('test-config-btn').addEventListener('click', handleTestConfig);
-                
-                // Adiciona event listeners para os toggles
-                const toggles = ['warming-enabled'];
-                toggles.forEach(toggleId => {
-                    const toggle = document.getElementById(toggleId);
-                    if (toggle) {
-                        toggle.addEventListener('change', function() {
-                            const label = this.nextElementSibling;
-                            if (this.checked) {
-                                this.style.right = '0';
-                                this.style.borderColor = '#38bdf8';
-                                label.style.backgroundColor = '#38bdf8';
-                            } else {
-                                this.style.right = '16px';
-                                this.style.borderColor = '#475569';
-                                label.style.backgroundColor = '#475569';
-                            }
-                        });
-                    }
-                });
-                
                 lucide.createIcons();
             };
 
@@ -552,22 +490,28 @@
             };
             
             const renderPage = async () => {
-                const [accountsData, statsData] = await Promise.all([ fetchFromAPI('accounts'), fetchFromAPI('system-stats') ]);
-                if (accountsData) state.accounts = accountsData.accounts;
-                if (statsData) state.systemStats = statsData;
-                if (state.currentPage === 'dashboard') renderDashboard();
-                else if (state.currentPage === 'contas') renderContas();
-                else if (state.currentPage === 'planos') renderPlanos();
-                else if (state.currentPage === 'configuracoes') renderConfiguracoes();
-                updateActiveNav();
-                lucide.createIcons();
+                try {
+                    const [accountsData, statsData] = await Promise.all([ fetchFromAPI('accounts'), fetchFromAPI('system-stats') ]);
+                    if (accountsData) state.accounts = accountsData.accounts;
+                    if (statsData) state.systemStats = statsData;
+
+                    if (state.currentPage === 'dashboard') renderDashboard();
+                    else if (state.currentPage === 'contas') renderContas();
+                    else if (state.currentPage === 'planos') renderPlanos();
+                    else if (state.currentPage === 'configuracoes') await renderConfiguracoes();
+                    
+                    updateActiveNav();
+                    lucide.createIcons();
+                } catch (e) {
+                    console.error("Falha ao renderizar a página:", e);
+                }
             };
 
             const openModal = () => modal.classList.remove('hidden');
             const closeModal = () => {
                 modal.classList.add('hidden');
-                qrContainer.innerHTML = `<div class="text-slate-500 text-center"><div class="loader ..."></div>Aguardando...</div>`;
-                if (mainSocket) mainSocket.close();
+                qrContainer.innerHTML = `<div class="text-slate-500 text-center"><div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-12 w-12 mb-4 mx-auto"></div>Aguardando QR Code...</div>`;
+                if (mainSocket && mainSocket.readyState === WebSocket.OPEN) mainSocket.close();
             };
 
             const handleAddChip = async () => {
@@ -576,50 +520,44 @@
                     const { sessionId } = await fetchFromAPI('start-session', { method: 'POST' });
                     if (!sessionId) throw new Error("ID de sessão não recebido.");
                     
-                    if(mainSocket) mainSocket.close(); // Fecha qualquer socket antigo
+                    if(mainSocket && mainSocket.readyState !== WebSocket.CLOSED) mainSocket.close();
                     
                     mainSocket = new WebSocket(`ws://127.0.0.1:8000/ws/frontend/${sessionId}`);
                     
                     mainSocket.onmessage = (event) => {
                         const msg = JSON.parse(event.data);
-                        console.log('WebSocket message received:', msg); // Debug
                         
                         if (msg.type === 'qr') {
-                            console.log('QR Code received, generating image...'); // Debug
                             const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(msg.data)}`;
-                            console.log('QR URL:', qrUrl); // Debug
                             qrContainer.innerHTML = `<img src="${qrUrl}" alt="QR Code" style="max-width: 100%; height: auto;">`;
                         } else if (msg.type === 'status_update') {
-                           console.log('Status update received:', msg.status); // Debug
-                           renderPage(); // Atualiza a página inteira para refletir a mudança
-                           
-                           // Se o status for "Online", mostra sucesso e fecha o modal
-                           if (msg.status === 'Online' && !modal.classList.contains('hidden')) {
+                            if (msg.status === 'Online' && !modal.classList.contains('hidden')) {
                                 qrContainer.innerHTML = `<div class="text-center text-green-400"><i data-lucide="check-circle" class="w-16 h-16 mx-auto mb-4"></i><p class="text-lg font-semibold">Conectado!</p></div>`;
                                 lucide.createIcons();
                                 setTimeout(() => { 
-                                    console.log('Closing modal...'); // Debug
                                     closeModal(); 
+                                    renderPage();
                                 }, 2000);
-                           }
+                            }
                         } else if (msg.type === 'full_update') {
                             renderPage();
                         }
                     };
+
+                    mainSocket.onclose = () => console.log('Socket do modal fechado.');
+                    mainSocket.onerror = (err) => console.error('Erro no socket do modal:', err);
+
                 } catch (error) {
                     console.error("Erro ao iniciar sessão:", error);
-                    
-                    // Verifica se é erro de limite do plano
                     if (error.message && error.message.includes('Limite do plano')) {
                         qrContainer.innerHTML = `
                             <div class="text-center text-red-400">
                                 <i data-lucide="alert-triangle" class="w-16 h-16 mx-auto mb-4"></i>
                                 <p class="text-lg font-semibold mb-2">Limite Atingido!</p>
-                                <p class="text-sm">Plano Básico: Máximo 4 contas</p>
-                                <p class="text-sm mt-2">Upgrade para PRO para mais contas</p>
+                                <p class="text-sm">Seu plano atual não permite mais contas.</p>
                             </div>`;
                     } else {
-                        qrContainer.innerHTML = `<div class="text-red-400">Erro ao iniciar sessão.</div>`;
+                        qrContainer.innerHTML = `<div class="text-red-400 text-center">Erro ao iniciar sessão.<br>Verifique se a API está online.</div>`;
                     }
                     lucide.createIcons();
                 }
@@ -627,7 +565,7 @@
             
             const handleRemoveChip = async (event) => {
                 const sessionId = event.currentTarget.dataset.sessionId;
-                if (confirm("Tem certeza que deseja remover esta conta?")) {
+                if (confirm("Tem certeza que deseja remover esta conta? A sessão será permanentemente excluída.")) {
                     await fetchFromAPI(`accounts/${sessionId}`, { method: 'DELETE' });
                     renderPage(); 
                 }
@@ -635,106 +573,37 @@
             
             const handleSaveConfig = async () => {
                 try {
-                    // Coleta dados do formulário
+                    const activeScripts = Array.from(document.querySelectorAll('input[name="scripts"]:checked')).map(cb => cb.value);
+
                     const warmingConfig = {
                         enabled: document.getElementById('warming-enabled').checked,
                         interval_seconds: parseInt(document.getElementById('warming-interval').value),
                         max_conversations: parseInt(document.getElementById('warming-max-conversations').value),
-                        active_scripts: []
+                        active_scripts: activeScripts
                     };
-                    
-                    // Coleta roteiros ativos
-                    if (document.getElementById('script-casual').checked) warmingConfig.active_scripts.push('casual');
-                    if (document.getElementById('script-trabalho').checked) warmingConfig.active_scripts.push('trabalho');
-                    if (document.getElementById('script-familia').checked) warmingConfig.active_scripts.push('familia');
                     
                     const securityConfig = {
                         gemini_api_key: document.getElementById('gemini-key').value,
-                        max_sessions: parseInt(document.getElementById('max-sessions').value),
-                        session_timeout: parseInt(document.getElementById('session-timeout').value)
+                        max_sessions: 25, // Fixo por enquanto
+                        session_timeout: 3600 // Fixo por enquanto
                     };
                     
-                    // Salva configurações
-                    await fetchFromAPI('config/warming', { 
-                        method: 'POST', 
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(warmingConfig) 
-                    });
-                    
-                    await fetchFromAPI('config/security', { 
-                        method: 'POST', 
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(securityConfig) 
-                    });
+                    await Promise.all([
+                        fetchFromAPI('config/warming', { 
+                            method: 'POST', 
+                            body: JSON.stringify(warmingConfig) 
+                        }),
+                        fetchFromAPI('config/security', { 
+                            method: 'POST', 
+                            body: JSON.stringify(securityConfig) 
+                        })
+                    ]);
                     
                     alert('✅ Configurações salvas com sucesso!');
                     
                 } catch (error) {
                     console.error('Erro ao salvar configurações:', error);
                     alert('❌ Erro ao salvar configurações. Verifique o console.');
-                }
-            };
-            
-            const handleResetConfig = async () => {
-                if (confirm('Tem certeza que deseja restaurar as configurações padrão?')) {
-                    try {
-                        // Restaura configurações padrão
-                        await fetchFromAPI('config/warming', { 
-                            method: 'POST', 
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                enabled: true,
-                                interval_seconds: 30,
-                                max_conversations: 5,
-                                active_scripts: ["casual", "trabalho", "familia"]
-                            }) 
-                        });
-                        
-
-                        
-                        await fetchFromAPI('config/security', { 
-                            method: 'POST', 
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                gemini_api_key: "",
-                                max_sessions: 10,
-                                session_timeout: 3600
-                            }) 
-                        });
-                        
-                        alert('✅ Configurações restauradas!');
-                        renderConfiguracoes(); // Recarrega a página
-                        
-                    } catch (error) {
-                        console.error('Erro ao restaurar configurações:', error);
-                        alert('❌ Erro ao restaurar configurações.');
-                    }
-                }
-            };
-            
-            const handleTestConfig = async () => {
-                try {
-                    const config = await fetchFromAPI('config');
-                    const stats = await fetchFromAPI('system-stats');
-                    
-                    let message = '🔧 Teste de Configurações:\n\n';
-                    message += `✅ Aquecimento: ${config.warming?.enabled ? 'Habilitado' : 'Desabilitado'}\n`;
-                    message += `⏰ Intervalo: ${config.warming?.interval_seconds}s\n`;
-                    message += `📊 Máximo conversas: ${config.warming?.max_conversations}\n`;
-                    message += `📝 Roteiros ativos: ${config.warming?.active_scripts?.join(', ')}\n`;
-                    message += `🔑 API Gemini: ${config.security?.gemini_api_key ? 'Configurada' : 'Não configurada'}\n`;
-                    message += `👥 Máximo sessões: ${config.security?.max_sessions}\n`;
-                    message += `⏱️ Timeout: ${config.security?.session_timeout}s\n\n`;
-                    message += `📈 Estatísticas:\n`;
-                    message += `• Conversas ativas: ${stats.activeConversations}\n`;
-                    message += `• Chips online: ${stats.onlineAccounts}\n`;
-                    message += `• Aquecendo: ${stats.warmingAccounts}`;
-                    
-                    alert(message);
-                    
-                } catch (error) {
-                    console.error('Erro no teste:', error);
-                    alert('❌ Erro ao testar configurações.');
                 }
             };
             
@@ -748,7 +617,34 @@
                 });
             });
 
+            // Conexão WebSocket principal para atualizações em tempo real
+            const connectMainWebSocket = () => {
+                // Usamos um ID genérico para o frontend principal
+                const ws = new WebSocket(`ws://127.0.0.1:8000/ws/frontend/main-dashboard`);
+
+                ws.onmessage = (event) => {
+                    const msg = JSON.parse(event.data);
+                    if (msg.type === 'full_update') {
+                        // Apenas renderiza se o modal não estiver aberto para evitar conflitos
+                        if (modal.classList.contains('hidden')) {
+                            renderPage();
+                        }
+                    }
+                };
+
+                ws.onclose = () => {
+                    console.log('WebSocket principal desconectado. Tentando reconectar em 5s...');
+                    setTimeout(connectMainWebSocket, 5000);
+                };
+
+                ws.onerror = (err) => {
+                    console.error('Erro no WebSocket principal:', err);
+                    ws.close();
+                };
+            };
+            
             renderPage();
+            connectMainWebSocket();
         };
     });
     </script>
