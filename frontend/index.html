@@ -17,28 +17,42 @@
         .loader { border-top-color: #38bdf8; animation: spin 1s ease-in-out infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
         
-        /* Estilos para os toggles */
-        .toggle-checkbox:checked {
-            right: 0;
-            border-color: #38bdf8;
+        .toggle-checkbox:checked { right: 0; border-color: #38bdf8; }
+        .toggle-checkbox:checked + .toggle-label { background-color: #38bdf8; }
+        .toggle-label { transition: background-color 0.3s ease; }
+        .toggle-checkbox { transition: all 0.3s ease; }
+
+        #toast {
+            position: fixed;
+            bottom: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            transition: bottom 0.5s ease-in-out;
+            z-index: 100;
         }
-        .toggle-checkbox:checked + .toggle-label {
-            background-color: #38bdf8;
-        }
-        .toggle-label {
-            transition: background-color 0.3s ease;
-        }
-        .toggle-checkbox {
-            transition: all 0.3s ease;
+        #toast.show {
+            bottom: 20px;
         }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100">
 
+    <div id="toast" class="flex items-center gap-4 w-full max-w-xs p-4 text-white bg-slate-700 border border-slate-600 rounded-lg shadow-lg">
+        <div id="toast-icon" class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 text-green-500 bg-green-800/50 rounded-lg">
+            <i data-lucide="check-circle" class="w-5 h-5"></i>
+        </div>
+        <div id="toast-message" class="ms-3 text-sm font-normal">Item moved successfully.</div>
+        <button type="button" id="toast-close-btn" class="ms-auto -mx-1.5 -my-1.5 bg-slate-600 text-slate-300 hover:text-white hover:bg-slate-500 rounded-lg p-1.5 inline-flex items-center justify-center h-8 w-8">
+            <i data-lucide="x" class="w-5 h-5 pointer-events-none"></i>
+        </button>
+    </div>
+
+
     <div id="login-wrapper" class="flex items-center justify-center min-h-screen">
         <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-8 max-w-sm w-full mx-4 shadow-2xl">
             <div class="flex items-center justify-center gap-3 mb-8">
-                <div class="bg-sky-500 p-2 rounded-lg"><i data-lucide="wifi" class="text-white"></i></div>
+                <!-- ÍCONE ALTERADO AQUI -->
+                <div class="bg-sky-500 p-2 rounded-lg"><i data-lucide="cpu" class="text-white"></i></div>
                 <h1 class="text-3xl font-bold">ChipAQ</h1>
             </div>
             <h2 class="text-xl font-semibold text-center text-slate-200">Acesse sua conta</h2>
@@ -61,7 +75,8 @@
 
     <div id="app-wrapper" class="flex min-h-screen hidden">
         <aside class="w-64 bg-slate-900/80 backdrop-blur-lg border-r border-slate-800 p-6 hidden lg:flex flex-col flex-shrink-0">
-            <div class="flex items-center gap-3 mb-12"><div class="bg-sky-500 p-2 rounded-lg"><i data-lucide="wifi" class="text-white"></i></div><h1 class="text-2xl font-bold">ChipAQ</h1></div>
+            <!-- ÍCONE ALTERADO AQUI -->
+            <div class="flex items-center gap-3 mb-12"><div class="bg-sky-500 p-2 rounded-lg"><i data-lucide="cpu" class="text-white"></i></div><h1 class="text-2xl font-bold">ChipAQ</h1></div>
             <nav class="flex flex-col gap-2">
                 <a href="#" id="nav-dashboard" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg font-semibold"><i data-lucide="layout-dashboard" class="w-5 h-5"></i> Dashboard</a>
                 <a href="#" id="nav-contas" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg font-semibold"><i data-lucide="smartphone" class="w-5 h-5"></i> Contas</a>
@@ -79,7 +94,12 @@
 
     <div id="modal" class="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50 backdrop-blur-sm hidden">
         <div class="bg-slate-800 border border-slate-700 rounded-xl p-8 max-w-md w-full m-4 shadow-2xl">
-            <div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold">Adicionar Novo Chip</h2><button id="close-modal-btn" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button></div>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold">Adicionar Novo Chip</h2>
+                <button id="close-modal-btn" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-6 h-6 pointer-events-none"></i>
+                </button>
+            </div>
             <div id="modal-body">
                 <p class="text-slate-400 mb-6">Escaneie o QR Code com o WhatsApp do novo número.</p>
                 <div id="qr-container" class="bg-white p-4 rounded-lg flex justify-center items-center h-72">
@@ -111,16 +131,41 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
+        const toastElement = document.getElementById('toast');
+        const toastMessage = document.getElementById('toast-message');
+        const toastIcon = document.getElementById('toast-icon');
+        const toastCloseBtn = document.getElementById('toast-close-btn');
+        let toastTimeout;
+
+        const showToast = (message, type = 'success') => {
+            clearTimeout(toastTimeout);
+            toastMessage.textContent = message;
+            if (type === 'success') {
+                toastIcon.innerHTML = `<i data-lucide="check-circle" class="w-5 h-5"></i>`;
+                toastIcon.className = 'inline-flex items-center justify-center flex-shrink-0 w-8 h-8 text-green-400 bg-green-900/50 rounded-lg';
+            } else if (type === 'error') {
+                toastIcon.innerHTML = `<i data-lucide="alert-triangle" class="w-5 h-5"></i>`;
+                toastIcon.className = 'inline-flex items-center justify-center flex-shrink-0 w-8 h-8 text-red-400 bg-red-900/50 rounded-lg';
+            }
+            lucide.createIcons();
+            toastElement.classList.add('show');
+            toastTimeout = setTimeout(() => {
+                toastElement.classList.remove('show');
+            }, 5000);
+        };
+
+        toastCloseBtn.addEventListener('click', () => {
+            clearTimeout(toastTimeout);
+            toastElement.classList.remove('show');
+        });
+
         let currentUserForPasswordChange = null;
         const loginWrapper = document.getElementById('login-wrapper');
         const appWrapper = document.getElementById('app-wrapper');
         const loginForm = document.getElementById('login-form');
         const loginError = document.getElementById('login-error');
         const logoutBtn = document.getElementById('logout-btn');
-        // URL da API - muda automaticamente entre desenvolvimento e produção
-        const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-            ? 'http://127.0.0.1:8000' 
-            : 'https://seu-backend.onrender.com'; // Substitua pela URL real do Render que você acabou de pegar
+        const API_URL = 'http://127.0.0.1:8000';
 
         const handleLogin = async (event) => {
             event.preventDefault();
@@ -133,30 +178,31 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
                 });
-                if (!response.ok) throw new Error('Credenciais inválidas');
                 const data = await response.json();
+                if (!response.ok) throw new Error(data.detail || 'Credenciais inválidas');
 
                 if (data.status === 'success') {
                     sessionStorage.setItem('isLoggedIn', 'true');
                     sessionStorage.setItem('userName', data.nome);
+                    sessionStorage.setItem('userPlan', data.plano || 'Básico');
+                    sessionStorage.setItem('username', username);
 
                     if (data.mustChange === true) {
                         currentUserForPasswordChange = username;
                         document.getElementById('change-password-modal').classList.remove('hidden');
                         loginWrapper.classList.add('hidden');
                     } else {
-                        showApp();
+                    showApp();
                     }
                 }
             } catch (error) {
-                loginError.textContent = 'Usuário ou senha inválidos.';
+                loginError.textContent = error.message;
             }
         };
 
         const handleLogout = () => {
-            sessionStorage.removeItem('isLoggedIn');
-            sessionStorage.removeItem('userName');
-            showLogin();
+            sessionStorage.clear();
+            location.reload();
         };
 
         const showApp = () => {
@@ -181,51 +227,47 @@
         logoutBtn.addEventListener('click', handleLogout);
 
         const changePasswordForm = document.getElementById('change-password-form');
+        if (changePasswordForm) {
+            changePasswordForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                const newPasswordInput = document.getElementById('new-password');
+                const confirmPasswordInput = document.getElementById('confirm-password');
+                const newPassword = newPasswordInput.value;
+                const confirmPassword = confirmPasswordInput.value;
 
-        changePasswordForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const newPasswordInput = document.getElementById('new-password');
-            const confirmPasswordInput = document.getElementById('confirm-password');
-            const newPassword = newPasswordInput.value;
-            const confirmPassword = confirmPasswordInput.value;
-
-            if (newPassword !== confirmPassword) {
-                alert('As senhas não coincidem!');
-                return;
-            }
-
-            if (newPassword.length < 4) {
-                alert('A senha precisa ter pelo menos 4 caracteres.');
-                return;
-            }
-
-            try {
-                const response = await fetch(`${API_URL}/api/change-password`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        username: currentUserForPasswordChange,
-                        newPassword: newPassword
-                    })
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.detail || 'Erro ao alterar a senha.');
+                if (newPassword !== confirmPassword) {
+                    showToast('As senhas não coincidem!', 'error');
+                    return;
                 }
-                
-                alert('Senha alterada com sucesso! Você será direcionado para o painel.');
-                document.getElementById('change-password-modal').classList.add('hidden');
-                
-                newPasswordInput.value = '';
-                confirmPasswordInput.value = '';
+                if (newPassword.length < 4) {
+                    showToast('A senha precisa ter pelo menos 4 caracteres.', 'error');
+                    return;
+                }
 
-                showApp();
+                try {
+                    const response = await fetch(`${API_URL}/api/change-password`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            username: currentUserForPasswordChange,
+                            newPassword: newPassword
+                        })
+                    });
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || 'Erro ao alterar a senha.');
+                    }
+                    showToast('Senha alterada com sucesso!');
+                    document.getElementById('change-password-modal').classList.add('hidden');
+                    newPasswordInput.value = '';
+                    confirmPasswordInput.value = '';
+                    showApp();
+                } catch (error) {
+                    showToast(`Erro: ${error.message}`, 'error');
+                }
+            });
+        }
 
-            } catch (error) {
-                alert(`Erro: ${error.message}`);
-            }
-        });
 
         const initializeDashboard = () => {
             const state = { currentPage: 'dashboard', accounts: [], systemStats: {} };
@@ -239,26 +281,18 @@
             const fetchFromAPI = async (endpoint, options = {}) => {
                 try {
                     if (options.method === 'POST' && options.body) {
-                        options.headers = {
-                            'Content-Type': 'application/json',
-                            ...options.headers
-                        };
+                        options.headers = { 'Content-Type': 'application/json', ...options.headers };
                     }
-                    
                     const response = await fetch(`${API_URL}/api/${endpoint}`, options);
                     if (!response.ok) {
                         const errorData = await response.json().catch(() => ({}));
-                        const errorMessage = errorData.detail || `Erro na API: ${response.statusText}`;
-                        throw new Error(errorMessage);
+                        throw new Error(errorData.detail || `Erro na API: ${response.statusText}`);
                     }
                     const contentType = response.headers.get("content-type");
-                    if (contentType && contentType.indexOf("application/json") !== -1) return await response.json();
-                    return {};
+                    return contentType?.includes("application/json") ? await response.json() : {};
                 } catch (error) {
                     console.error(`Erro no endpoint /${endpoint}:`, error);
-                    if (endpoint !== 'start-session') {
-                        mainContent.innerHTML = `<div class="text-center p-8 bg-red-900/50 border border-red-500 rounded-lg"><h2 class="text-2xl font-bold text-red-400">Excluido com Sucesso</h2><p class="text-slate-300 mt-2">Pode Voltar para a Dashboard.</p></div>`;
-                    }
+                    mainContent.innerHTML = `<div class="text-center p-8 bg-red-900/50 border border-red-500 rounded-lg"><h2 class="text-2xl font-bold text-red-400">Erro de Comunicação</h2><p class="text-slate-300 mt-2">Não foi possível conectar à API.</p></div>`;
                     throw error;
                 }
             };
@@ -274,213 +308,137 @@
                 return `<div class="flex items-center gap-2"><span class="h-2.5 w-2.5 rounded-full ${config.color}"></span><span class="text-sm font-medium">${config.text}</span></div>`;
             };
             
-            // --- ATUALIZAÇÃO DA INTERFACE ---
-            const renderDashboard = () => {
-                const activeAccounts = state.accounts.filter(acc => acc.status === 'Online' || acc.status === 'Aquecendo').length;
-                const planLimit = 20; // NOVO LIMITE
-                const canAddMore = state.accounts.length < planLimit;
-                const userName = sessionStorage.getItem('userName') || 'Chefe'; 
+            const renderDashboardAndContas = (page) => {
+                const userPlan = sessionStorage.getItem('userPlan') || 'Básico';
+                const planLimit = userPlan === 'PRO' ? 20 : 5;
+                const planName = userPlan === 'PRO' ? 'Plano PRO' : 'Plano Básico';
+                const currentAccounts = state.accounts.length;
+                const canAddMore = currentAccounts < planLimit;
+                const userName = sessionStorage.getItem('userName') || 'Chefe';
                 
-                mainContent.innerHTML = `
+                const headerHTML = `
                     <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 gap-4">
                         <div>
-                            <h2 class="text-3xl font-bold">Dashboard</h2>
-                            <p class="text-slate-400">Bem-vindo, ${userName}!</p>
+                            <h2 class="text-3xl font-bold">${page === 'dashboard' ? 'Dashboard' : 'Gerenciador de Contas'}</h2>
+                            <p class="text-slate-400">${page === 'dashboard' ? `Bem-vindo, ${userName}!` : 'Adicione ou remova as suas contas.'}</p>
                         </div>
                         <div class="flex items-center gap-4">
                             <div class="text-right">
-                                <p class="text-sm text-slate-400">Plano PRO</p>
-                                <p class="text-lg font-semibold">${state.accounts.length} / ${planLimit} contas</p>
+                                <p class="text-sm text-slate-400">${planName}</p>
+                                <p class="text-lg font-semibold">${currentAccounts} / ${planLimit} contas</p>
                             </div>
                             <button id="add-chip-btn" class="flex items-center gap-2 ${canAddMore ? 'bg-sky-500 hover:bg-sky-600' : 'bg-slate-600 cursor-not-allowed'} text-white font-bold py-3 px-5 rounded-lg transition-colors">
                                 <i data-lucide="plus" class="w-5 h-5"></i> 
                                 ${canAddMore ? 'Adicionar Chip' : 'Limite Atingido'}
                             </button>
                         </div>
-                    </header>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-                        <div class="bg-slate-800/50 p-6 rounded-xl border border-slate-700/50">
-                            <h3 class="text-slate-400 text-sm">Contas Ativas</h3>
-                            <p class="text-4xl font-bold mt-2">${activeAccounts} / ${state.accounts.length}</p>
-                        </div>
-                        <div class="bg-slate-800/50 p-6 rounded-xl border border-slate-700/50">
-                            <h3 class="text-slate-400 text-sm">Conversas Ativas</h3>
-                            <p class="text-4xl font-bold mt-2 text-yellow-400">${state.systemStats.activeConversations || 0}</p>
-                        </div>
-                        <div class="bg-slate-800/50 p-6 rounded-xl border border-slate-700/50">
-                            <h3 class="text-slate-400 text-sm">Aquecendo</h3>
-                            <p class="text-4xl font-bold mt-2 text-orange-400">${state.systemStats.warmingAccounts || 0}</p>
-                        </div>
-                        <div class="bg-slate-800/50 p-6 rounded-xl border border-slate-700/50">
-                            <h3 class="text-slate-400 text-sm">Tempo de atividade</h3>
-                            <p class="text-4xl font-bold mt-2">${state.systemStats.uptime || '0m'}</p>
-                        </div>
-                    </div>
-                    <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl">
-                        <div class="p-6">
-                            <h3 class="text-xl font-semibold">Visão Geral das Contas</h3>
-                            <p class="text-sm text-slate-400 mt-1">As conversas são iniciadas dinamicamente entre as contas online.</p>
-                        </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left">
-                                <thead>
-                                    <tr class="text-sm text-slate-400">
-                                        <th class="p-4">Número</th>
-                                        <th class="p-4">Status</th>
-                                        <th class="p-4">Última Atividade</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${state.accounts.length > 0 ? state.accounts.map((acc) => {
-                                        return `<tr class="border-t border-slate-800 hover:bg-slate-800">
-                                            <td class="p-4 font-medium">${acc.numero}</td>
-                                            <td class="p-4">${createStatusBadge(acc.status)}</td>
-                                            <td class="p-4">${new Date(acc.ultimaAtividade).toLocaleString('pt-BR')}</td>
-                                        </tr>`;
-                                    }).join('') : `<tr><td colspan="3" class="text-center p-8 text-slate-400">Nenhuma conta adicionada ainda.</td></tr>`}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>`;
-                
-                const addButton = document.getElementById('add-chip-btn');
-                addButton.addEventListener('click', canAddMore ? handleAddChip : () => {
-                    alert(`⚠️ Limite do plano PRO atingido (${planLimit} contas)!\n\nPara adicionar mais, contate o suporte.`);
-                });
-            };
+                    </header>`;
 
-            const renderContas = () => {
-                const planLimit = 20; // NOVO LIMITE
-                const canAddMore = state.accounts.length < planLimit;
-                
-                mainContent.innerHTML = `
-                    <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 gap-4">
-                        <div>
-                            <h2 class="text-3xl font-bold">Gerenciador de Contas</h2>
-                            <p class="text-slate-400">Adicione ou remova suas contas de aquecimento.</p>
+                let contentHTML = '';
+                if (page === 'dashboard') {
+                    const activeWarming = state.accounts.filter(acc => acc.status === 'Online' || acc.status === 'Aquecendo').length;
+                    contentHTML = `
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+                            <div class="bg-slate-800/50 p-6 rounded-xl border border-slate-700/50"><h3 class="text-slate-400 text-sm">Contas Ativas</h3><p class="text-4xl font-bold mt-2">${activeWarming} / ${currentAccounts}</p></div>
+                            <div class="bg-slate-800/50 p-6 rounded-xl border border-slate-700/50"><h3 class="text-slate-400 text-sm">Conversas Ativas</h3><p class="text-4xl font-bold mt-2 text-yellow-400">${state.systemStats.activeConversations || 0}</p></div>
+                            <div class="bg-slate-800/50 p-6 rounded-xl border border-slate-700/50"><h3 class="text-slate-400 text-sm">Aquecendo</h3><p class="text-4xl font-bold mt-2 text-orange-400">${state.systemStats.warmingAccounts || 0}</p></div>
+                            <div class="bg-slate-800/50 p-6 rounded-xl border border-slate-700/50"><h3 class="text-slate-400 text-sm">Tempo de atividade</h3><p class="text-4xl font-bold mt-2">${state.systemStats.uptime || '0m'}</p></div>
                         </div>
-                        <div class="flex items-center gap-4">
-                            <div class="text-right">
-                                <p class="text-sm text-slate-400">Plano PRO</p>
-                                <p class="text-lg font-semibold">${state.accounts.length} / ${planLimit} contas</p>
+                        <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl">
+                            <div class="p-6"><h3 class="text-xl font-semibold">Visão Geral das Contas</h3><p class="text-sm text-slate-400 mt-1">As conversas são iniciadas dinamicamente entre as contas online.</p></div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left">
+                                    <thead><tr class="text-sm text-slate-400"><th class="p-4">Número</th><th class="p-4">Status</th><th class="p-4">Última Atividade</th></tr></thead>
+                                    <tbody>
+                                        ${state.accounts.length > 0 ? state.accounts.map(acc => `<tr class="border-t border-slate-800 hover:bg-slate-800"><td class="p-4 font-medium">${acc.numero}</td><td class="p-4">${createStatusBadge(acc.status)}</td><td class="p-4">${new Date(acc.ultimaAtividade).toLocaleString('pt-BR')}</td></tr>`).join('') : `<tr><td colspan="3" class="text-center p-8 text-slate-400">Nenhuma conta adicionada ainda.</td></tr>`}
+                                    </tbody>
+                                </table>
                             </div>
-                            <button id="add-chip-btn" class="flex items-center gap-2 ${canAddMore ? 'bg-sky-500 hover:bg-sky-600' : 'bg-slate-600 cursor-not-allowed'} text-white font-bold py-3 px-5 rounded-lg transition-colors">
-                                <i data-lucide="plus" class="w-5 h-5"></i> 
-                                ${canAddMore ? 'Adicionar Chip' : 'Limite Atingido'}
-                            </button>
-                        </div>
-                    </header>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        ${state.accounts.map((account) => {
-                            return `
+                        </div>`;
+                } else { // page === 'contas'
+                    contentHTML = `
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            ${state.accounts.map(account => `
                                 <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 flex flex-col">
                                     <div class="flex justify-between items-start mb-4">
-                                        <div>
-                                            <span class="font-semibold text-lg">${account.numero}</span>
-                                        </div>
+                                        <div><span class="font-semibold text-lg">${account.numero}</span></div>
                                         ${createStatusBadge(account.status)}
                                     </div>
-                                    <div class="text-xs text-slate-400 mb-4">
-                                        Última Atividade: ${new Date(account.ultimaAtividade).toLocaleTimeString('pt-BR')}
-                                    </div>
+                                    <div class="text-xs text-slate-400 mb-4">Última Atividade: ${new Date(account.ultimaAtividade).toLocaleTimeString('pt-BR')}</div>
                                     <div class="mt-auto flex gap-2">
-                                        <button data-session-id="${account.id}" class="remove-btn flex-1 flex items-center justify-center gap-2 bg-red-500/20 text-red-400 hover:bg-red-500/30 font-semibold py-2 px-3 rounded-lg">
-                                            <i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i> Remover
-                                        </button>
+                                        <button data-session-id="${account.id}" class="remove-btn flex-1 flex items-center justify-center gap-2 bg-red-500/20 text-red-400 hover:bg-red-500/30 font-semibold py-2 px-3 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i> Remover</button>
                                     </div>
-                                </div>`;
-                        }).join('') || '<p class="text-slate-400 col-span-full text-center py-10">Nenhuma conta conectada.</p>'}
-                    </div>`;
+                                </div>`).join('') || '<p class="text-slate-400 col-span-full text-center py-10">Nenhuma conta conectada.</p>'}
+                        </div>`;
+                }
+
+                mainContent.innerHTML = headerHTML + contentHTML;
                 
-                const addButton = document.getElementById('add-chip-btn');
-                addButton.addEventListener('click', canAddMore ? handleAddChip : () => {
-                    alert(`⚠️ Limite do plano PRO atingido (${planLimit} contas)!\n\nPara adicionar mais, contate o suporte.`);
+                document.getElementById('add-chip-btn').addEventListener('click', canAddMore ? handleAddChip : () => {
+                    showToast(`Limite do ${planName} atingido (${planLimit} contas). Faça o upgrade na aba 'Planos'.`, 'error');
                 });
-                document.querySelectorAll('.remove-btn').forEach(btn => btn.addEventListener('click', handleRemoveChip));
+                if (page === 'contas') {
+                    document.querySelectorAll('.remove-btn').forEach(btn => btn.addEventListener('click', handleRemoveChip));
+                }
             };
-            
-            const renderPlanos = () => { mainContent.innerHTML = `<header class="mb-10 text-center"><h2 class="text-3xl font-bold">Nossos Planos</h2><p class="text-slate-400 max-w-xl mx-auto mt-2">Escolha o plano que melhor se adapta às suas necessidades.</p></header><div class="flex flex-col lg:flex-row justify-center items-center gap-8"><div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-8 w-full max-w-sm"><h3 class="text-2xl font-bold text-center">Iniciante</h3><p class="text-center text-slate-400 mb-6">Ideal para começar</p><p class="text-4xl font-bold text-center mb-6">R$ 49<span class="text-lg font-medium text-slate-400">/mês</span></p><ul class="space-y-4 mb-8"><li class="flex items-center gap-3"><i data-lucide="check" class="text-green-400 w-5 h-5"></i><span>Até <strong>5</strong> contas</span></li><li class="flex items-center gap-3"><i data-lucide="check" class="text-green-400 w-5 h-5"></i><span>Conversas com roteiro fixo</span></li><li class="flex items-center gap-3 text-slate-500"><i data-lucide="x" class="w-5 h-5"></i><span>Conversas com IA</span></li></ul><button class="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-6 rounded-lg">Mudar Plano</button></div><div class="bg-slate-800 border-2 border-sky-500 rounded-xl p-8 w-full max-w-sm relative shadow-2xl shadow-sky-500/20"><div class="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 bg-sky-500 text-white px-4 py-1 rounded-full text-sm font-bold">PLANO ATUAL</div><h3 class="text-2xl font-bold text-center text-sky-400">PRO</h3><p class="text-center text-slate-400 mb-6">Para usuários avançados</p><p class="text-4xl font-bold text-center mb-6">R$ 99<span class="text-lg font-medium text-slate-400">/mês</span></p><ul class="space-y-4 mb-8"><li class="flex items-center gap-3"><i data-lucide="check" class="text-green-400 w-5 h-5"></i><span>Até <strong>20</strong> contas</span></li><li class="flex items-center gap-3"><i data-lucide="check" class="text-green-400 w-5 h-5"></i><span>Conversas com roteiro dinâmico</span></li><li class="flex items-center gap-3"><i data-lucide="check" class="text-green-400 w-5 h-5"></i><span>Conversas com <strong>IA (Gemini)</strong></span></li></ul><button class="w-full bg-slate-600 text-slate-400 font-bold py-3 px-6 rounded-lg cursor-not-allowed" disabled>Selecionado</button></div></div>`; };
-            
+
+            const renderPlanos = () => {
+                const userPlan = sessionStorage.getItem('userPlan') || 'Básico';
+                const proPlanButton = userPlan === 'PRO'
+                    ? `<button class="w-full bg-slate-600 text-slate-400 font-bold py-3 px-6 rounded-lg cursor-not-allowed" disabled>Seu Plano Atual</button>`
+                    : `<a href="https://pay.cakto.com.br/33gokjs_524845" target="_blank" class="w-full text-center bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-6 rounded-lg">Fazer Upgrade para PRO</a>`;
+
+                mainContent.innerHTML = `
+                    <header class="mb-10 text-center"><h2 class="text-3xl font-bold">Nossos Planos</h2><p class="text-slate-400 max-w-xl mx-auto mt-2">Escolha o plano que melhor se adapta às suas necessidades.</p></header>
+                    <div class="flex flex-col lg:flex-row justify-center items-center gap-8">
+                        <div class="bg-slate-800/50 ${userPlan === 'Básico' ? 'border-2 border-sky-500' : 'border border-slate-700/50'} rounded-xl p-8 w-full max-w-sm relative">
+                            ${userPlan === 'Básico' ? `<div class="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 bg-sky-500 text-white px-4 py-1 rounded-full text-sm font-bold">SEU PLANO</div>` : ''}
+                            <h3 class="text-2xl font-bold text-center">Básico</h3><p class="text-center text-slate-400 mb-6">Para começar</p>
+                            <ul class="space-y-4 my-8 text-slate-300">
+                                <li class="flex items-center gap-3"><i data-lucide="check" class="text-green-400 w-5 h-5"></i><span>Até <strong>5</strong> contas</span></li>
+                                <li class="flex items-center gap-3"><i data-lucide="check" class="text-green-400 w-5 h-5"></i><span>Conversas com Roteiro</span></li>
+                                <li class="flex items-center gap-3"><i data-lucide="check" class="text-green-400 w-5 h-5"></i><span>Envio de Áudios</span></li>
+                            </ul>
+                        </div>
+                        <div class="bg-slate-800/50 ${userPlan === 'PRO' ? 'border-2 border-sky-500' : 'border border-slate-700/50'} rounded-xl p-8 w-full max-w-sm relative">
+                             ${userPlan === 'PRO' ? `<div class="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 bg-sky-500 text-white px-4 py-1 rounded-full text-sm font-bold">SEU PLANO</div>` : ''}
+                            <h3 class="text-2xl font-bold text-center text-sky-400">PRO</h3><p class="text-center text-slate-400 mb-6">Para escalar seus resultados</p>
+                             <ul class="space-y-4 my-8 text-slate-300">
+                                <li class="flex items-center gap-3"><i data-lucide="check" class="text-green-400 w-5 h-5"></i><span>Até <strong>20</strong> contas</span></li>
+                                <li class="flex items-center gap-3"><i data-lucide="check" class="text-green-400 w-5 h-5"></i><span>Conversas com Roteiro</span></li>
+                                <li class="flex items-center gap-3"><i data-lucide="check" class="text-green-400 w-5 h-5"></i><span>Envio de Áudios</span></li>
+                                <li class="flex items-center gap-3 text-slate-500"><i data-lucide="x" class="w-5 h-5"></i><span>Conversas com IA (Em breve)</span></li>
+                            </ul>
+                            ${proPlanButton}
+                    </div>
+                    </div>`; 
+            };
+
             const renderConfiguracoes = async () => {
                 const config = await fetchFromAPI('config') || {};
-                
                 mainContent.innerHTML = `
-                    <header class="mb-10">
-                        <h2 class="text-3xl font-bold">Configurações</h2>
-                        <p class="text-slate-400">Ajuste as configurações do sistema de aquecimento.</p>
-                    </header>
-                    
+                    <header class="mb-10"><h2 class="text-3xl font-bold">Configurações</h2><p class="text-slate-400">Ajuste as configurações do sistema de aquecimento.</p></header>
                     <div class="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        
-                        <!-- Configurações de Aquecimento -->
                         <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-                            <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
-                                <i data-lucide="zap" class="w-5 h-5 text-yellow-400"></i>
-                                Aquecimento Automático
-                            </h3>
-                            
+                            <h3 class="text-xl font-semibold mb-4 flex items-center gap-2"><i data-lucide="zap" class="w-5 h-5 text-yellow-400"></i> Aquecimento Automático</h3>
                             <div class="space-y-4">
-                                <div class="flex justify-between items-center">
-                                    <span class="text-slate-300">Habilitar aquecimento</span>
-                                    <div class="relative inline-block w-10 mr-2 align-middle">
-                                        <input type="checkbox" id="warming-enabled" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" ${config.warming?.enabled ? 'checked' : ''}/>
-                                        <label for="warming-enabled" class="toggle-label block overflow-hidden h-6 rounded-full cursor-pointer"></label>
-                                    </div>
-                                </div>
-                                
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-400 mb-1">Intervalo (segundos)</label>
-                                    <input type="number" id="warming-interval" value="${config.warming?.interval_seconds || 30}" min="10" max="300" class="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500">
-                                </div>
-                                
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-400 mb-1">Máximo de conversas simultâneas</label>
-                                    <input type="number" id="warming-max-conversations" value="${config.warming?.max_conversations || 10}" min="1" max="20" class="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500">
-                                </div>
-                                
-                                <div>
-                                    <label class="block text-sm font-medium text-slate-400 mb-1">Roteiros Ativos</label>
-                                    <div class="space-y-2 mt-2">
-                                        <label class="flex items-center gap-2"><input type="checkbox" name="scripts" value="casual" ${config.warming?.active_scripts?.includes('casual') ? 'checked' : ''} class="form-checkbox h-5 w-5 rounded bg-slate-700 border-slate-600 text-sky-500 focus:ring-sky-500"><span class="text-slate-300">Casual</span></label>
-                                        <label class="flex items-center gap-2"><input type="checkbox" name="scripts" value="trabalho" ${config.warming?.active_scripts?.includes('trabalho') ? 'checked' : ''} class="form-checkbox h-5 w-5 rounded bg-slate-700 border-slate-600 text-sky-500 focus:ring-sky-500"><span class="text-slate-300">Trabalho</span></label>
-                                        <label class="flex items-center gap-2"><input type="checkbox" name="scripts" value="familia" ${config.warming?.active_scripts?.includes('familia') ? 'checked' : ''} class="form-checkbox h-5 w-5 rounded bg-slate-700 border-slate-600 text-sky-500 focus:ring-sky-500"><span class="text-slate-300">Família</span></label>
-                                    </div>
-                                </div>
+                                <div class="flex justify-between items-center"><span class="text-slate-300">Habilitar aquecimento</span><div class="relative inline-block w-10 mr-2 align-middle"><input type="checkbox" id="warming-enabled" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer" ${config.warming?.enabled ? 'checked' : ''}/><label for="warming-enabled" class="toggle-label block overflow-hidden h-6 rounded-full cursor-pointer"></label></div></div>
+                                <div><label class="block text-sm font-medium text-slate-400 mb-1">Intervalo (segundos)</label><input type="number" id="warming-interval" value="${config.warming?.interval_seconds || 30}" min="10" max="300" class="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"></div>
+                                <div><label class="block text-sm font-medium text-slate-400 mb-1">Máximo de conversas simultâneas</label><input type="number" id="warming-max-conversations" value="${config.warming?.max_conversations || 10}" min="1" max="20" class="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500"></div>
+                                <div><label class="block text-sm font-medium text-slate-400 mb-1">Roteiros Ativos</label><div class="space-y-2 mt-2"><label class="flex items-center gap-2"><input type="checkbox" name="scripts" value="casual" ${config.warming?.active_scripts?.includes('casual') ? 'checked' : ''} class="form-checkbox h-5 w-5 rounded bg-slate-700 border-slate-600 text-sky-500 focus:ring-sky-500"><span class="text-slate-300">Casual</span></label><label class="flex items-center gap-2"><input type="checkbox" name="scripts" value="trabalho" ${config.warming?.active_scripts?.includes('trabalho') ? 'checked' : ''} class="form-checkbox h-5 w-5 rounded bg-slate-700 border-slate-600 text-sky-500 focus:ring-sky-500"><span class="text-slate-300">Trabalho</span></label><label class="flex items-center gap-2"><input type="checkbox" name="scripts" value="familia" ${config.warming?.active_scripts?.includes('familia') ? 'checked' : ''} class="form-checkbox h-5 w-5 rounded bg-slate-700 border-slate-600 text-sky-500 focus:ring-sky-500"><span class="text-slate-300">Família</span></label></div></div>
                             </div>
                         </div>
-                        
-                        
-                        <!-- Configurações de Segurança e Ações -->
                         <div class="space-y-8">
                             <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-                                <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
-                                    <i data-lucide="shield" class="w-5 h-5 text-green-400"></i>
-                                    Segurança
-                                </h3>
-                                
-                                <div class="space-y-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-slate-400 mb-1">Chave API Gemini (Opcional)</label>
-                                        <input type="password" id="gemini-key" value="${config.security?.gemini_api_key || ''}" class="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" placeholder="sk-...">
-                                    </div>
-                                </div>
+                                <h3 class="text-xl font-semibold mb-4 flex items-center gap-2"><i data-lucide="shield" class="w-5 h-5 text-green-400"></i> Segurança</h3>
+                                <div class="space-y-4"><div><label class="block text-sm font-medium text-slate-400 mb-1">Chave API (EM BREVE)</label><input type="password" id="gemini-key" value="${config.security?.gemini_api_key || ''}" class="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-sky-500" placeholder="EM BREVE"></div></div>
                             </div>
-
                             <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-                                <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
-                                    <i data-lucide="save" class="w-5 h-5 text-purple-400"></i>
-                                    Ações
-                                </h3>
-                                <div class="space-y-4">
-                                    <button id="save-config-btn" class="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-6 rounded-lg transition-colors">
-                                        Salvar Configurações
-                                    </button>
-                                </div>
+                                <h3 class="text-xl font-semibold mb-4 flex items-center gap-2"><i data-lucide="save" class="w-5 h-5 text-purple-400"></i> Ações</h3>
+                                <div class="space-y-4"><button id="save-config-btn" class="w-full bg-sky-500 hover:bg-sky-600 text-white font-bold py-3 px-6 rounded-lg transition-colors">Salvar Configurações</button></div>
                             </div>
                         </div>
-                    </div>
-                `;
-                
+                    </div>`;
                 document.getElementById('save-config-btn').addEventListener('click', handleSaveConfig);
                 lucide.createIcons();
             };
@@ -494,17 +452,17 @@
             
             const renderPage = async () => {
                 try {
-                    const [accountsData, statsData] = await Promise.all([ fetchFromAPI('accounts'), fetchFromAPI('system-stats') ]);
-                    if (accountsData) state.accounts = accountsData.accounts;
-                    if (statsData) state.systemStats = statsData;
+                const [accountsData, statsData] = await Promise.all([ fetchFromAPI('accounts'), fetchFromAPI('system-stats') ]);
+                    state.accounts = accountsData.accounts || [];
+                    state.systemStats = statsData || {};
 
-                    if (state.currentPage === 'dashboard') renderDashboard();
-                    else if (state.currentPage === 'contas') renderContas();
-                    else if (state.currentPage === 'planos') renderPlanos();
+                    if (state.currentPage === 'dashboard') renderDashboardAndContas('dashboard');
+                    else if (state.currentPage === 'contas') renderDashboardAndContas('contas');
+                else if (state.currentPage === 'planos') renderPlanos();
                     else if (state.currentPage === 'configuracoes') await renderConfiguracoes();
                     
-                    updateActiveNav();
-                    lucide.createIcons();
+                updateActiveNav();
+                lucide.createIcons();
                 } catch (e) {
                     console.error("Falha ao renderizar a página:", e);
                 }
@@ -520,52 +478,42 @@
             const handleAddChip = async () => {
                 openModal();
                 try {
-                    const { sessionId } = await fetchFromAPI('start-session', { method: 'POST' });
+                    const username = sessionStorage.getItem('username');
+                    const plano = sessionStorage.getItem('userPlan');
+                    const { sessionId } = await fetchFromAPI('start-session', { 
+                        method: 'POST',
+                        body: JSON.stringify({ username, plano })
+                    });
+                    
                     if (!sessionId) throw new Error("ID de sessão não recebido.");
                     
                     if(mainSocket && mainSocket.readyState !== WebSocket.CLOSED) mainSocket.close();
                     
-                    // WebSocket URL - muda automaticamente entre desenvolvimento e produção
-                    const wsUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-                        ? `ws://127.0.0.1:8000/ws/frontend/${sessionId}`
-                        : `wss://seu-backend.onrender.com/ws/frontend/${sessionId}`; // Substitua pela URL real do Render que você acabou de pegar
+                    const wsUrl = `ws://127.0.0.1:8000/ws/frontend/${sessionId}`;
                     mainSocket = new WebSocket(wsUrl);
                     
                     mainSocket.onmessage = (event) => {
                         const msg = JSON.parse(event.data);
-                        
                         if (msg.type === 'qr') {
                             const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(msg.data)}`;
                             qrContainer.innerHTML = `<img src="${qrUrl}" alt="QR Code" style="max-width: 100%; height: auto;">`;
-                        } else if (msg.type === 'status_update') {
-                            if (msg.status === 'Online' && !modal.classList.contains('hidden')) {
+                        } else if (msg.type === 'status_update' && msg.status === 'Online' && !modal.classList.contains('hidden')) {
                                 qrContainer.innerHTML = `<div class="text-center text-green-400"><i data-lucide="check-circle" class="w-16 h-16 mx-auto mb-4"></i><p class="text-lg font-semibold">Conectado!</p></div>`;
                                 lucide.createIcons();
-                                setTimeout(() => { 
-                                    closeModal(); 
-                                    renderPage();
-                                }, 2000);
-                            }
-                        } else if (msg.type === 'full_update') {
+                            setTimeout(() => { 
+                                closeModal(); 
                             renderPage();
+                            }, 2000);
                         }
                     };
-
-                    mainSocket.onclose = () => console.log('Socket do modal fechado.');
-                    mainSocket.onerror = (err) => console.error('Erro no socket do modal:', err);
-
                 } catch (error) {
                     console.error("Erro ao iniciar sessão:", error);
-                    if (error.message && error.message.includes('Limite do plano')) {
-                        qrContainer.innerHTML = `
-                            <div class="text-center text-red-400">
-                                <i data-lucide="alert-triangle" class="w-16 h-16 mx-auto mb-4"></i>
-                                <p class="text-lg font-semibold mb-2">Limite Atingido!</p>
-                                <p class="text-sm">Seu plano atual não permite mais contas.</p>
-                            </div>`;
-                    } else {
-                        qrContainer.innerHTML = `<div class="text-red-400 text-center">Erro ao iniciar sessão.<br>Verifique se a API está online.</div>`;
-                    }
+                    qrContainer.innerHTML = `
+                        <div class="text-center text-red-400">
+                            <i data-lucide="alert-triangle" class="w-16 h-16 mx-auto mb-4"></i>
+                            <p class="text-lg font-semibold mb-2">Não foi possível adicionar!</p>
+                            <p class="text-sm">${error.message}</p>
+                        </div>`;
                     lucide.createIcons();
                 }
             };
@@ -573,49 +521,44 @@
             const handleRemoveChip = async (event) => {
                 const sessionId = event.currentTarget.dataset.sessionId;
                 if (confirm("Tem certeza que deseja remover esta conta? A sessão será permanentemente excluída.")) {
+                    try {
                     await fetchFromAPI(`accounts/${sessionId}`, { method: 'DELETE' });
+                        showToast('Conta removida com sucesso!');
                     renderPage(); 
+                    } catch(e) {
+                        showToast('Erro ao remover a conta.', 'error');
+                    }
                 }
             };
-            
+
             const handleSaveConfig = async () => {
                 try {
                     const activeScripts = Array.from(document.querySelectorAll('input[name="scripts"]:checked')).map(cb => cb.value);
-
                     const warmingConfig = {
                         enabled: document.getElementById('warming-enabled').checked,
                         interval_seconds: parseInt(document.getElementById('warming-interval').value),
                         max_conversations: parseInt(document.getElementById('warming-max-conversations').value),
                         active_scripts: activeScripts
                     };
-                    
                     const securityConfig = {
                         gemini_api_key: document.getElementById('gemini-key').value,
-                        max_sessions: 25, // Fixo por enquanto
-                        session_timeout: 3600 // Fixo por enquanto
+                        max_sessions: 25,
+                        session_timeout: 3600
                     };
-                    
                     await Promise.all([
-                        fetchFromAPI('config/warming', { 
-                            method: 'POST', 
-                            body: JSON.stringify(warmingConfig) 
-                        }),
-                        fetchFromAPI('config/security', { 
-                            method: 'POST', 
-                            body: JSON.stringify(securityConfig) 
-                        })
+                        fetchFromAPI('config/warming', { method: 'POST', body: JSON.stringify(warmingConfig) }),
+                        fetchFromAPI('config/security', { method: 'POST', body: JSON.stringify(securityConfig) })
                     ]);
-                    
-                    alert('✅ Configurações salvas com sucesso!');
-                    
+                    showToast('Configurações salvas com sucesso!');
                 } catch (error) {
                     console.error('Erro ao salvar configurações:', error);
-                    alert('❌ Erro ao salvar configurações. Verifique o console.');
+                    showToast('Erro ao salvar configurações.', 'error');
                 }
             };
             
             closeModalBtn.addEventListener('click', closeModal);
             modal.addEventListener('click', (event) => { if (event.target.id === 'modal') closeModal(); });
+
             navLinks.forEach(link => {
                 link.addEventListener('click', (e) => {
                     e.preventDefault();
@@ -624,32 +567,18 @@
                 });
             });
 
-            // Conexão WebSocket principal para atualizações em tempo real
             const connectMainWebSocket = () => {
-                // Usamos um ID genérico para o frontend principal
                 const ws = new WebSocket(`ws://127.0.0.1:8000/ws/frontend/main-dashboard`);
-
                 ws.onmessage = (event) => {
                     const msg = JSON.parse(event.data);
-                    if (msg.type === 'full_update') {
-                        // Apenas renderiza se o modal não estiver aberto para evitar conflitos
-                        if (modal.classList.contains('hidden')) {
-                            renderPage();
-                        }
+                    if (msg.type === 'full_update' && modal.classList.contains('hidden')) {
+                        renderPage();
                     }
                 };
-
-                ws.onclose = () => {
-                    console.log('WebSocket principal desconectado. Tentando reconectar em 5s...');
-                    setTimeout(connectMainWebSocket, 5000);
-                };
-
-                ws.onerror = (err) => {
-                    console.error('Erro no WebSocket principal:', err);
-                    ws.close();
-                };
+                ws.onclose = () => setTimeout(connectMainWebSocket, 5000);
+                ws.onerror = (err) => { console.error('Erro no WebSocket principal:', err); ws.close(); };
             };
-            
+
             renderPage();
             connectMainWebSocket();
         };

@@ -12,6 +12,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import requests
+from typing import Optional
 
 app = FastAPI()
 
@@ -27,6 +28,11 @@ class UserLogin(BaseModel):
 class UserPasswordChange(BaseModel):
     username: str
     newPassword: str
+
+# --- ALTERAÇÃO: Modelo para o request de start-session ---
+class StartSessionRequest(BaseModel):
+    username: str
+    plano: str
 
 class WarmingConfig(BaseModel):
     enabled: bool = True
@@ -98,22 +104,43 @@ running_processes = {}
 conversation_state = {}
 app.state.start_time = datetime.datetime.utcnow()
 
-# Roteiros de conversa para aquecimento
+# Roteiros de conversa para aquecimento (com áudios)
 conversation_scripts = {
     "casual": [
-        "Oi! Tudo bem?", "Tudo sim! E você?", "Também, na correria de sempre.",
-        "Imagino. Fim de semana promete?", "Tomara! Precisando descansar um pouco.",
-        "Com certeza. Bom, vou indo nessa. Se cuida!", "Você também! Abraço."
+        {"type": "text", "content": "Oi! Tudo bem?"},
+        {"type": "text", "content": "Tudo sim! E você?"},
+        {"type": "audio", "content": "casual_risada.mp3", "caption": "kkkk"},
+        {"type": "text", "content": "Também, na correria de sempre."},
+        {"type": "text", "content": "Imagino. Fim de semana promete?"},
+        {"type": "audio", "content": "casual_concordar.mp3", "caption": "Sim!"},
+        {"type": "text", "content": "Tomara! Precisando descansar um pouco."},
+        {"type": "text", "content": "Com certeza. Bom, vou indo nessa. Se cuida!"},
+        {"type": "audio", "content": "casual_tchau.mp3", "caption": "Tchau!"},
+        {"type": "text", "content": "Você também! Abraço."}
     ],
     "trabalho": [
-        "Oi! Como foi o dia?", "Corrido, mas produtivo. E o seu?", "Também foi bem movimentado.",
-        "Conseguiu resolver aquela questão?", "Sim, deu tudo certo no final.",
-        "Que bom! Bom trabalho então!", "Valeu! Até mais!"
+        {"type": "text", "content": "Oi! Como foi o dia?"},
+        {"type": "text", "content": "Corrido, mas produtivo. E o seu?"},
+        {"type": "audio", "content": "trabalho_concordar.mp3", "caption": "Concordo"},
+        {"type": "text", "content": "Também foi bem movimentado."},
+        {"type": "text", "content": "Conseguiu resolver aquela questão?"},
+        {"type": "audio", "content": "trabalho_sucesso.mp3", "caption": "Perfeito!"},
+        {"type": "text", "content": "Sim, deu tudo certo no final."},
+        {"type": "text", "content": "Que bom! Bom trabalho então!"},
+        {"type": "audio", "content": "trabalho_obrigado.mp3", "caption": "Obrigado!"},
+        {"type": "text", "content": "Valeu! Até mais!"}
     ],
     "familia": [
-        "Oi! Como estão as crianças?", "Tudo bem! Estudando bastante.", "Que ótimo!",
-        "E o trabalho, como está?", "Na medida, sabe como é.",
-        "Se cuida! Manda abraço pra família!", "Valeu! Abraço pra vocês também!"
+        {"type": "text", "content": "Oi! Como estão as crianças?"},
+        {"type": "text", "content": "Tudo bem! Estudando bastante."},
+        {"type": "audio", "content": "familia_beijo.mp3", "caption": "Beijo"},
+        {"type": "text", "content": "Que ótimo!"},
+        {"type": "text", "content": "E o trabalho, como está?"},
+        {"type": "audio", "content": "familia_concordar.mp3", "caption": "Sim"},
+        {"type": "text", "content": "Na medida, sabe como é."},
+        {"type": "text", "content": "Se cuida! Manda abraço pra família!"},
+        {"type": "audio", "content": "familia_abraco.mp3", "caption": "Abraço"},
+        {"type": "text", "content": "Valeu! Abraço pra vocês também!"}
     ]
 }
 
@@ -125,16 +152,9 @@ async def warming_scheduler():
         if not warming_config.enabled:
             continue
             
-        available_accounts = [
-            acc for acc in accounts_db.values() 
-            if acc.get("status") == "Online"
-        ]
-        
+        available_accounts = [acc for acc in accounts_db.values() if acc.get("status") == "Online"]
         random.shuffle(available_accounts)
-
-        accounts_in_conversation = set()
-        for conv_data in conversation_state.values():
-            accounts_in_conversation.update(conv_data['participants'])
+        accounts_in_conversation = {p for conv in conversation_state.values() for p in conv['participants']}
 
         i = 0
         while i < len(available_accounts) - 1:
@@ -150,39 +170,31 @@ async def warming_scheduler():
                 i += 2
                 continue
 
-            conversation_id_1 = f"{acc1['id']}-{acc2['id']}"
-            conversation_id_2 = f"{acc2['id']}-{acc1['id']}"
-
-            if conversation_id_1 not in conversation_state and conversation_id_2 not in conversation_state:
+            conversation_id = f"{acc1['id']}-{acc2['id']}"
+            if conversation_id not in conversation_state and f"{acc2['id']}-{acc1['id']}" not in conversation_state:
                 available_scripts = [s for s in warming_config.active_scripts if s in conversation_scripts]
-                if not available_scripts:
-                    continue
+                if not available_scripts: continue
                     
                 script_type = random.choice(available_scripts)
                 script = conversation_scripts[script_type]
                 
                 if system_config.debug_mode:
-                    print(f"[🔥 AQUECIMENTO] Novo par dinâmico: {acc1.get('numero')} ↔ {acc2.get('numero')} | Roteiro: {script_type}")
+                    print(f"[🔥 AQUECIMENTO] Novo par: {acc1.get('numero')} ↔ {acc2.get('numero')} | Roteiro: {script_type}")
                 
-                # --- ALTERAÇÃO 1: Adiciona a trava (lock) na criação da conversa ---
-                conversation_state[conversation_id_1] = {
-                    "step": 0, 
-                    "participants": [acc1['id'], acc2['id']],
-                    "script": script,
-                    "script_type": script_type,
-                    "start_time": datetime.datetime.now(),
-                    "lock": asyncio.Lock() # Trava para evitar condição de corrida
+                conversation_state[conversation_id] = {
+                    "step": 0, "participants": [acc1['id'], acc2['id']], "script": script,
+                    "script_type": script_type, "start_time": datetime.datetime.now(),
+                    "lock": asyncio.Lock()
                 }
                 
-                accounts_in_conversation.add(acc1['id'])
-                accounts_in_conversation.add(acc2['id'])
-
-                first_message = script[0]
-                await manager.send_to_bot(acc1['id'], {
-                    "type": "send_message", 
-                    "to": acc2['raw_numero'], 
-                    "text": first_message
-                })
+                accounts_in_conversation.update([acc1['id'], acc2['id']])
+                first_step = script[0]
+                message_payload = {
+                    "to": acc2['raw_numero'],
+                    **({"type": "send_message", "text": first_step["content"]} if first_step["type"] == "text" else \
+                       {"type": "send_audio", "audio_file": first_step["content"], "caption": first_step.get("caption", "")})
+                }
+                await manager.send_to_bot(acc1['id'], message_payload)
                 
                 accounts_db[acc1['id']]['status'] = 'Aquecendo'
                 accounts_db[acc2['id']]['status'] = 'Aquecendo'
@@ -190,17 +202,16 @@ async def warming_scheduler():
                 await manager.broadcast_to_frontends({"type": "full_update"})
                 
                 if system_config.debug_mode:
-                    print(f"[🔥 AQUECIMENTO] Primeira mensagem enviada: '{first_message}'")
+                    print(f"[🔥 AQUECIMENTO] Primeira msg enviada: {first_step['type']} - '{first_step['content']}'")
                 
                 await asyncio.sleep(random.uniform(3, 7))
-
             i += 2
 
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(warming_scheduler())
 
-# --- Endpoints HTTP (sem alterações) ---
+# --- Endpoints HTTP ---
 @app.get("/")
 def read_root():
     return {"message": "API do ChipWarmer está no ar!"}
@@ -214,7 +225,13 @@ async def login(user: UserLogin):
         response.raise_for_status()
         data = response.json()
         if data.get("status") == "success":
-            return {"status": "success", "nome": data.get("nome"), "mustChange": data.get("mustChange")}
+            # --- ALTERAÇÃO: Repassa o plano recebido do Apps Script ---
+            return {
+                "status": "success", 
+                "nome": data.get("nome"), 
+                "mustChange": data.get("mustChange"),
+                "plano": data.get("plano", "Básico") # Retorna o plano, com 'Básico' como padrão de segurança
+            }
         else:
             raise HTTPException(status_code=401, detail=data.get("message", "Credenciais inválidas."))
     except requests.exceptions.RequestException as e:
@@ -256,24 +273,14 @@ def get_system_stats():
     online_accounts = len([acc for acc in accounts_db.values() if acc.get("status") == "Online"])
     warming_accounts = len([acc for acc in accounts_db.values() if acc.get("status") == "Aquecendo"])
     
+    audios_sent = sum(1 for conv in conversation_state.values() for step in conv.get("script", []) if step.get("type") == "audio")
+    
     return {
         "messagesToday": sum(acc.get("mensagensEnviadas", 0) for acc in accounts_db.values()),
-        "systemStatus": "Online", "systemStatusColor": "text-green-400", "uptime": uptime_string,
+        "systemStatus": "Online", "uptime": uptime_string,
         "activeConversations": active_conversations, "onlineAccounts": online_accounts,
-        "warmingAccounts": warming_accounts
+        "warmingAccounts": warming_accounts, "audiosSent": audios_sent
     }
-
-@app.get("/api/conversations")
-def get_conversations():
-    conversations = []
-    for conv_id, conv_data in conversation_state.items():
-        participants = [accounts_db[pid]["numero"] for pid in conv_data["participants"] if pid in accounts_db]
-        conversations.append({
-            "id": conv_id, "participants": participants, "script_type": conv_data["script_type"],
-            "step": conv_data["step"], "total_steps": len(conv_data["script"]),
-            "start_time": conv_data["start_time"].isoformat()
-        })
-    return {"conversations": conversations}
 
 @app.get("/api/config")
 def get_config():
@@ -300,16 +307,25 @@ async def update_security_config(config: SecurityConfig):
     await manager.broadcast_to_frontends({"type": "full_update"}) 
     return {"status": "success", "message": "Configurações de segurança atualizadas"}
 
+# --- ALTERAÇÃO: Endpoint de start-session agora valida o plano ---
 @app.post("/api/start-session")
-async def start_session():
-    current_accounts = len(accounts_db)
-    plan_limit = 20
+async def start_session(req: StartSessionRequest):
+    plan_limit = 20 if req.plano == "PRO" else 5
     
-    if current_accounts >= plan_limit:
-        raise HTTPException(status_code=400, detail=f"Limite do plano atingido. Máximo {plan_limit} contas permitidas.")
+    # A validação agora considera apenas as contas do usuário que está fazendo a requisição
+    user_accounts = [acc for acc in accounts_db.values() if acc.get("owner") == req.username]
+    if len(user_accounts) >= plan_limit:
+        raise HTTPException(
+            status_code=403, 
+            detail=f"Limite do plano {req.plano} atingido. Máximo {plan_limit} contas permitidas."
+        )
     
     session_id = str(uuid.uuid4())
-    accounts_db[session_id] = { "id": session_id, "numero": "Iniciando...", "status": "Pendente", "ultimaAtividade": datetime.datetime.now().isoformat() }
+    accounts_db[session_id] = { 
+        "id": session_id, "numero": "Iniciando...", "status": "Pendente", 
+        "ultimaAtividade": datetime.datetime.now().isoformat(),
+        "owner": req.username # Adiciona o dono da sessão
+    }
     process = subprocess.Popen(['node', 'index.js', session_id], cwd='../automacao_whatsapp')
     running_processes[session_id] = process
     await manager.broadcast_to_frontends({"type": "full_update"})
@@ -328,11 +344,11 @@ async def remove_account(session_id: str):
     if session_id in accounts_db:
         del accounts_db[session_id]
     
-    convs_to_remove = [conv_id for conv_id, data in conversation_state.items() if session_id in data['participants']]
+    convs_to_remove = [conv_id for conv_id, data in list(conversation_state.items()) if session_id in data['participants']]
     for conv_id in convs_to_remove:
-        other_participant_id = next((pid for pid in conversation_state[conv_id]['participants'] if pid != session_id), None)
-        if other_participant_id and other_participant_id in accounts_db:
-            accounts_db[other_participant_id]['status'] = 'Online'
+        other_pid = next((pid for pid in conversation_state[conv_id]['participants'] if pid != session_id), None)
+        if other_pid and other_pid in accounts_db:
+            accounts_db[other_pid]['status'] = 'Online'
         del conversation_state[conv_id]
 
     session_folder_path = os.path.join("..", "automacao_whatsapp", ".wwebjs_auth", f"session-{session_id}")
@@ -377,68 +393,39 @@ async def websocket_automacao_endpoint(websocket: WebSocket, session_id: str):
                 await manager.broadcast_to_frontends({"type": "full_update"})
 
             elif data.get("type") == "message_received":
-                if system_config.debug_mode:
-                    print(f"[📨 MENSAGEM] Recebida por {session_id}: '{data.get('text', '')}' de {data.get('from')}")
-                
-                active_conversation_id = next((conv_id for conv_id, conv_data in conversation_state.items() if session_id in conv_data["participants"]), None)
-
-                if active_conversation_id:
-                    # --- ALTERAÇÃO 2: Usa a trava para proteger o estado da conversa ---
-                    conv_data = conversation_state.get(active_conversation_id)
-                    if not conv_data: continue # Se a conversa foi encerrada por outro processo, ignora
-
-                    lock = conv_data["lock"]
-                    async with lock:
-                        # Verifica novamente se a conversa ainda existe após adquirir a trava
-                        if active_conversation_id not in conversation_state:
-                            continue
-
+                active_conv_id = next((cid for cid, cdata in conversation_state.items() if session_id in cdata["participants"]), None)
+                if active_conv_id:
+                    conv_data = conversation_state.get(active_conv_id)
+                    if not conv_data: continue
+                    
+                    async with conv_data["lock"]:
+                        if active_conv_id not in conversation_state: continue
                         conv_data["step"] += 1
-                        
                         script = conv_data["script"]
                         if conv_data["step"] < len(script):
-                            reply_delay = random.uniform(5, 15)
-                            if system_config.debug_mode:
-                                print(f"[⏳ ATRASO] {session_id} aguardando {reply_delay:.1f}s antes de responder.")
+                            await asyncio.sleep(random.uniform(5, 15))
+                            next_step = script[conv_data["step"]]
                             
-                            await asyncio.sleep(reply_delay)
-
-                            next_message = script[conv_data["step"]]
-                            if system_config.debug_mode:
-                                print(f"[🔥 AQUECIMENTO] {session_id} respondendo com: '{next_message}'")
-                            
-                            await manager.send_to_bot(session_id, {
-                                "type": "send_message", "to": data["from"], "text": next_message
-                            })
+                            message_payload = {
+                                "to": data["from"],
+                                **({"type": "send_message", "text": next_step["content"]} if next_step["type"] == "text" else \
+                                   {"type": "send_audio", "audio_file": next_step["content"], "caption": next_step.get("caption", "")})
+                            }
+                            await manager.send_to_bot(session_id, message_payload)
                         else:
-                            # Finaliza a conversa
-                            duration = datetime.datetime.now() - conv_data["start_time"]
-                            if system_config.debug_mode:
-                                print(f"[✅ CONVERSA FINALIZADA] {active_conversation_id} - Duração: {duration.total_seconds():.1f}s")
-                            
                             for pid in conv_data["participants"]:
                                 if pid in accounts_db:
                                     accounts_db[pid]["status"] = "Online"
                                     accounts_db[pid]["ultimaAtividade"] = datetime.datetime.now().isoformat()
-                            
-                            # Deleta a conversa de dentro da trava para garantir atomicidade
-                            del conversation_state[active_conversation_id]
+                            del conversation_state[active_conv_id]
                             await manager.broadcast_to_frontends({"type": "full_update"})
 
     except WebSocketDisconnect:
-        if session_id in accounts_db:
-            accounts_db[session_id]["status"] = "Erro"
-            await manager.broadcast_to_frontends({"type": "full_update"})
+        if session_id in accounts_db: accounts_db[session_id]["status"] = "Erro"
+        await manager.broadcast_to_frontends({"type": "full_update"})
         manager.disconnect_bot(session_id)
-        if system_config.debug_mode:
-            print(f"[🔌 DESCONECTADO] Bot {session_id} desconectado.")
     except Exception as e:
-        # Pega qualquer outra exceção para evitar que o websocket caia
         if system_config.debug_mode:
             print(f"[‼️ ERRO INESPERADO] no websocket de {session_id}: {e}")
-            import traceback
-            traceback.print_exc()
-        if session_id in accounts_db:
-            accounts_db[session_id]["status"] = "Erro"
-            await manager.broadcast_to_frontends({"type": "full_update"})
-
+        if session_id in accounts_db: accounts_db[session_id]["status"] = "Erro"
+        await manager.broadcast_to_frontends({"type": "full_update"})
